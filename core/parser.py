@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from .document import Document
+from core.document import Document
 
 
 class BaseParser(ABC):
