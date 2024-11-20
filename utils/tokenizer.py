@@ -117,3 +117,7 @@ class ChineseSimpleTokenizer:
 if __name__ == '__main__':
     chinese_tokenizer = ChineseSimpleTokenizer()
     print(chinese_tokenizer.get_stopwords())
+    # 测试分词
+    text = "这是一个人工智能相关的项目"
+    tokens = chinese_tokenizer.tokenize(text)
+    print(tokens)
