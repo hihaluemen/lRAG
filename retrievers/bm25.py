@@ -26,10 +26,11 @@ class BM25Retriever:
         # 加载用户词典
         if user_dict_path:
             self._load_user_dict(user_dict_path)
-            
+
+        # 初始化存储
         self.documents: List[Document] = []
+        self.tokenized_docs: List[List[str]] = []
         self.bm25 = None
-        self.tokenized_docs = None
 
     def _load_user_dict(self, dict_path: str):
         """加载用户自定义词典"""
@@ -78,8 +79,16 @@ class BM25Retriever:
         if not tokenized_query:
             return []
 
+        # 打印调试信息
+        # print(f"Query tokens: {tokenized_query}")
+        # print(f"Document tokens:")
+        # for doc, tokens in zip(self.documents, self.tokenized_docs):
+        #     print(f"- {doc.content}: {tokens}")
+
         # 计算相似度得分
         scores = self.bm25.get_scores(tokenized_query)
+
+        # print(f"Scores: {scores}")  # 打印所有分数
 
         # 获取top-k文档的索引
         top_indices = np.argsort(scores)[-top_k:][::-1]
