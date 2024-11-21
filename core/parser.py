@@ -14,8 +14,7 @@ class BaseParser(ABC):
             Document列表
         """
         pass
-    
-    @abstractmethod
+
     def split(self, doc: Document, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[Document]:
         """分割文档
         Args:
