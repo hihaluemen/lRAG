@@ -11,6 +11,7 @@ class BM25Retriever:
 
     def __init__(
         self,
+        top_k: int = None,
         stopwords_files: List[str] = None,
         user_dict_path: Optional[str] = None
     ):
@@ -31,6 +32,8 @@ class BM25Retriever:
         self.documents: List[Document] = []
         self.tokenized_docs: List[List[str]] = []
         self.bm25 = None
+        if top_k:
+            self.top_k = top_k
 
     def _load_user_dict(self, dict_path: str):
         """加载用户自定义词典"""
@@ -57,7 +60,7 @@ class BM25Retriever:
     def retrieve(
             self,
             query: str,
-            top_k: int = 5,
+            top_k: int = None,
             return_scores: bool = False
     ) -> List[Union[Document, Tuple[Document, float]]]:
         """检索相关文档
@@ -91,6 +94,8 @@ class BM25Retriever:
         # print(f"Scores: {scores}")  # 打印所有分数
 
         # 获取top-k文档的索引
+        if not top_k:
+            top_k = self.top_k
         top_indices = np.argsort(scores)[-top_k:][::-1]
 
         if return_scores:

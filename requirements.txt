@@ -12,7 +12,7 @@ sentence-transformers>=2.2.0
 
 # 向量存储
 faiss-cpu>=1.7.4    # 如果使用GPU，替换为 faiss-gpu
-#pymilvus>=2.3.0     # Milvus客户端
+pymilvus>=2.3.0     # Milvus客户端
 
 # LLM客户端
 openai               # OpenAI API
