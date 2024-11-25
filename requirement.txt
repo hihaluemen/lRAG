@@ -1,3 +1,0 @@
-numpy
-rank_bm25
-jieba
