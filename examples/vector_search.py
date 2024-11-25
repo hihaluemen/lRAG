@@ -1,9 +1,12 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='TRUE'
 from embeddings.mytransformers import TransformersEmbedding
 from retrievers.vector import VectorRetriever
 from core.document import Document
 
 # 初始化
-embedding_model = TransformersEmbedding(model_name="BAAI/bge-small-zh-v1.5")
+# embedding_model = TransformersEmbedding(model_name="BAAI/bge-small-zh-v1.5")
+embedding_model = TransformersEmbedding(model_name="../models/bge-small-zh-v1.5")
 retriever = VectorRetriever(
     embedding_model=embedding_model,
     top_k=3,
