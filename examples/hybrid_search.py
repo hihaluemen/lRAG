@@ -21,20 +21,25 @@ def test_search():
         index_type="IP"
     )
     
-    bm25_retriever = BM25Retriever(top_k=5)
+    bm25_retriever = BM25Retriever(
+        top_k=5,
+        score_threshold=0.1
+    )
     
     # 初始化重排序器
     reranker = BGELayerwiseReranker(
         model_name="../models/bge-reranker-v2-minicpm-layerwise",
         use_fp16=True,
         batch_size=32,
-        cutoff_layers=[28]  # 使用第28层
+        cutoff_layers=[28]
     )
     
     # 初始化融合检索器
     hybrid_retriever = HybridRetriever(
         retrievers=[vector_retriever, bm25_retriever],
+        retriever_weights=[0.7, 0.3],  # 设置权重
         top_k=5,
+        pre_rerank_top_k=10,  # 重排序前保留10个文档
         reranker=reranker
     )
 
@@ -74,6 +79,12 @@ def test_search():
         for i, doc in enumerate(results, 1):
             print(f"{i}. {doc.content}")
         print("-" * 50)
+
+    # 打印检索器状态
+    print("\n检索器状态:")
+    stats = hybrid_retriever.get_stats()
+    for key, value in stats.items():
+        print(f"{key}: {value}")
 
 
 if __name__ == "__main__":

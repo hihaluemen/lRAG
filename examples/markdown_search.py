@@ -5,9 +5,13 @@ from retrievers.bm25 import BM25Retriever
 
 
 def test_markdown_search():
+    print("初始化模型...")
     # 初始化解析器和检索器
     parser = MarkdownParser()
-    retriever = BM25Retriever()
+    retriever = BM25Retriever(
+        top_k=3,
+        score_threshold=0.5  # 可选的相似度阈值
+    )
 
     # 解析markdown文件
     current_dir = Path(__file__).parent.parent
@@ -16,18 +20,17 @@ def test_markdown_search():
     try:
         # 解析文档
         documents = parser.parse(str(md_file))
-        print(f"\n成功解析文档，共{len(documents)}个片段:")
-
-        # 打印解析结果
-        for i, doc in enumerate(documents):
-            print(f"\n片段 {i + 1}:")
-            print(f"Title: {doc.metadata.get('title')}")
-            print(f"Chunk ID: {doc.metadata.get('chunk_id')}")
-            print(f"Content:\n{doc.content}\n")
-            print("-" * 50)
-
+        print(f"\n成功解析文档，共{len(documents)}个片段")
+        
         # 添加到检索器
+        print("\n添加文档到检索器...")
         retriever.add_documents(documents)
+        
+        # 打印检索器状态
+        stats = retriever.get_stats()
+        print("\n检索器状态:")
+        for key, value in stats.items():
+            print(f"{key}: {value}")
 
         # 测试查询
         test_queries = [
@@ -37,69 +40,26 @@ def test_markdown_search():
             "检索系统支持哪些功能？"
         ]
 
+        print("\n开始测试检索...")
         for query in test_queries:
             print(f"\n查询: {query}")
-
-            # 打印查询的分词结果
-            tokenized_query = retriever.preprocess(query)
-            print(f"查询分词: {tokenized_query}")
-
+            print("-" * 50)
+            
             # 获取检索结果
-            results = retriever.retrieve(query, top_k=2, return_scores=True)
-
+            results = retriever.retrieve(query)
+            
+            # 打印结果
             print("\n检索结果:")
-            for doc, score in results:
-                print(f"Score: {score:.4f}")
-                print(f"Title: {doc.metadata.get('title')}")
-                print(f"Content:\n{doc.content}")
-                print("-" * 50)
+            for i, doc in enumerate(results, 1):
+                print(f"\n{i}. 标题: {doc.metadata.get('title', '无标题')}")
+                print(f"内容:\n{doc.content}")
+                print("-" * 30)
 
     except FileNotFoundError:
         print(f"找不到测试文件: {md_file}")
-        print("请确保test_docs目录下存在sample.md文件")
     except Exception as e:
         print(f"发生错误: {str(e)}")
 
 
-def main():
-    # 初始化检索器(可选择性加载额外停用词表和用户词典)
-    retriever = BM25Retriever()
-
-    # 创建测试文档
-    docs = [
-        Document(
-            content="今天天气真不错，阳光明媚。",
-            metadata={"source": "doc1"}
-        ),
-        Document(
-            content="北京今天下雨了，天气很凉爽。",
-            metadata={"source": "doc2"}
-        ),
-        Document(
-            content="昨天下雪了，很冷。",
-            metadata={"source": "doc3"}
-        )
-    ]
-
-    # 添加文档到检索器
-    retriever.add_documents(docs)
-
-    # 测试查询
-    query = "今天天气怎么样"
-    print(f"\n查询: {query}")
-
-    # 获取带分数的结果
-    results_with_scores = retriever.retrieve(query, top_k=2, return_scores=True)
-
-    # 打印结果
-    print("\n检索结果:")
-    for doc, score in results_with_scores:
-        print(f"Score: {score:.4f}")
-        print(f"Content: {doc.content}")
-        print(f"Source: {doc.metadata['source']}")
-        print("-" * 50)
-
-
 if __name__ == "__main__":
-    # main()
     test_markdown_search()
