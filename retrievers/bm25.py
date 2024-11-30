@@ -66,12 +66,19 @@ class BM25Retriever(BaseRetriever):
         # 创建BM25索引
         self.bm25 = BM25Okapi(self.tokenized_docs)
 
-    def retrieve(self, query: str) -> List[Document]:
-        """检索相关文档"""
+    def retrieve_with_scores(self, query: str) -> List[tuple[Document, float]]:
+        """检索相关文档并返回分数
+
+        Args:
+            query: 查询文本
+
+        Returns:
+            List[tuple[Document, float]]: 文档和原始BM25分数的元组列表
+        """
         if not self.documents or not self.bm25:
             return []
 
-        # 对查询进行分词
+        # 对查���进行分词
         tokenized_query = self.tokenizer.tokenize(query)
         if not tokenized_query:
             return []
@@ -86,11 +93,18 @@ class BM25Retriever(BaseRetriever):
         else:
             valid_indices = np.arange(len(scores))
             
-        # 获取top-k文档的索引
+        # 获取top-k文档的索引和分数
         top_indices = np.argsort(scores[valid_indices])[-self.top_k:][::-1]
         result_indices = valid_indices[top_indices]
+        result_scores = scores[result_indices]
         
-        return [self.documents[idx] for idx in result_indices]
+        # 返回文档和原始分数的元组列表
+        return [(self.documents[idx], float(score)) 
+                for idx, score in zip(result_indices, result_scores)]
+
+    def retrieve(self, query: str) -> List[Document]:
+        """检索相关文档（仅返回文档，不返回分数）"""
+        return [doc for doc, _ in self.retrieve_with_scores(query)]
 
     def save(self, path: str) -> None:
         """

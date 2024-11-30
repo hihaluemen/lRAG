@@ -40,6 +40,12 @@ class BaseRetriever(ABC):
             List[List[Document]]: 每个查询对应的相关文档列表
         """
         return [self.retrieve(query) for query in queries]
+    
+    def retrieve_with_scores(self, query: str) -> List[tuple[Document, float]]:
+        """
+        检索相关文档并返回分数
+        """
+        pass
 
     def save(self, path: str) -> None:
         """

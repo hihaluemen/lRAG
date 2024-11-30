@@ -55,6 +55,9 @@ class VectorRetriever(BaseRetriever):
         texts = [doc.content for doc in documents]
         embeddings = self.embedding_model.encode(texts)
         
+        # 归一化向量
+        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+        
         # 首次添加文档时初始化索引
         if self.index is None:
             self._init_index(embeddings.shape[1])
@@ -63,13 +66,21 @@ class VectorRetriever(BaseRetriever):
         self.index.add(embeddings.astype(np.float32))
         self.documents.extend(documents)
         
-    def retrieve(self, query: str) -> List[Document]:
-        """检索相似文档"""
+    def retrieve_with_scores(self, query: str) -> List[tuple[Document, float]]:
+        """检索相似文档，并返回文档和相似度分数
+
+        Args:
+            query: 查询文本
+
+        Returns:
+            List[tuple[Document, float]]: 文档和原始相似度分数的元组列表
+        """
         if not self.documents or self.index is None:
             return []
             
-        # 计算查询向量
+        # 计算查询向量并归一化
         query_embedding = self.embedding_model.encode(query)
+        query_embedding = query_embedding / np.linalg.norm(query_embedding, axis=1, keepdims=True)
         
         # 搜索最相似的向量
         scores, indices = self.index.search(
@@ -77,15 +88,17 @@ class VectorRetriever(BaseRetriever):
             min(self.top_k, len(self.documents))
         )
         
-        # 应用相似度阈值
-        if self.score_threshold is not None:
-            mask = scores[0] >= self.score_threshold
-            indices = indices[0][mask]
-        else:
-            indices = indices[0]
+        # 应用相似度阈值并组合文档和原始分数
+        results = []
+        for score, idx in zip(scores[0], indices[0]):
+            if self.score_threshold is None or score >= self.score_threshold:
+                results.append((self.documents[idx], float(score)))
             
-        # 返回相似文档
-        return [self.documents[idx] for idx in indices]
+        return results
+        
+    def retrieve(self, query: str) -> List[Document]:
+        """检索相似文档（仅返回文档，不返回分数）"""
+        return [doc for doc, _ in self.retrieve_with_scores(query)]
         
     def save(self, path: str):
         """

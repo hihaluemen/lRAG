@@ -3,6 +3,7 @@ from core.retriever import BaseRetriever
 from core.document import Document
 import os
 import pickle
+import numpy as np
 
 
 class HybridRetriever(BaseRetriever):
@@ -45,34 +46,64 @@ class HybridRetriever(BaseRetriever):
         for retriever in self.retrievers:
             retriever.add_documents(documents)
 
-    def retrieve(self, query: str) -> List[Document]:
-        """执行融合检索"""
-        # 获取所有检索器的结果
-        all_docs = []
-        seen_ids = set()  # 用于去重的id集合
+    def retrieve_with_scores(self, query: str) -> List[tuple[Document, float]]:
+        """执行融合检索并返回分数
 
-        # 从每个检索器获取结果并去重
-        for retriever, weight in zip(self.retrievers, self.retriever_weights):
+        Args:
+            query: 查询文本
+
+        Returns:
+            List[tuple[Document, float]]: 文档和融合后分数的元组列表
+        """
+        # 获取所有检索器的结果和分数
+        retriever_results = []
+        for retriever in self.retrievers:
+            results = retriever.retrieve_with_scores(query)
+            if results:  # 如果有结果，进行归一化
+                scores = np.array([score for _, score in results])
+                min_score = np.min(scores)
+                max_score = np.max(scores)
+                if max_score > min_score:  # 避免除以零
+                    normalized_scores = (scores - min_score) / (max_score - min_score)
+                else:
+                    normalized_scores = np.ones_like(scores)
+                retriever_results.append([(doc, float(score)) for (doc, _), score 
+                                        in zip(results, normalized_scores)])
+            else:
+                retriever_results.append([])
+
+        # 融合结果
+        doc_scores = {}  # 用于存储每个文档的加权分数
+        seen_ids = set()  # 用于去重的id集合
+        all_results = []
+
+        # 从每个检索器获取结果并计算加权分数
+        for results, weight in zip(retriever_results, self.retriever_weights):
             if weight <= 0:  # 跳过权重为0的检索器
                 continue
                 
-            docs = retriever.retrieve(query)
-            for doc in docs:
+            for doc, score in results:
                 if doc.id not in seen_ids:
                     seen_ids.add(doc.id)
-                    all_docs.append(doc)
-                    
-            # 控制重排序前的文档数量
-            if len(all_docs) >= self.pre_rerank_top_k:
-                all_docs = all_docs[:self.pre_rerank_top_k]
-                break
+                    if doc.id not in doc_scores:
+                        doc_scores[doc.id] = 0.0
+                    doc_scores[doc.id] += score * weight
+                    all_results.append((doc, doc_scores[doc.id]))
 
         # 如果有重排序器，进行重排序
-        if self.reranker is not None and all_docs:
-            all_docs = self.reranker.rerank(query, all_docs)
+        if self.reranker is not None and all_results:
+            docs = [doc for doc, _ in all_results]
+            reranked_docs = self.reranker.rerank(query, docs)
+            # 使用重排序后的顺序重新计算分数
+            all_results = [(doc, 1.0 - i/len(reranked_docs)) for i, doc in enumerate(reranked_docs)]
 
-        # 返回top_k个文档
-        return all_docs[:self.top_k]
+        # 按分数排序并返回top_k个结果
+        all_results = sorted(all_results, key=lambda x: x[1], reverse=True)
+        return all_results[:self.top_k]
+
+    def retrieve(self, query: str) -> List[Document]:
+        """检索相似文档（仅返回文档，不返回分数）"""
+        return [doc for doc, _ in self.retrieve_with_scores(query)]
 
     def save(self, path: str) -> None:
         """
