@@ -26,3 +26,5 @@ pydantic            # 数据验证
 #loguru>=0.7.0       # 日志处理
 rank_bm25
 jieba
+pandas
+openpyxl
