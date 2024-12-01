@@ -17,7 +17,6 @@
 
 - 灵活的向量存储支持
   - FAISS
-  - Milvus
   
 - 可扩展的架构设计
   - 模块化的文档解析器
@@ -30,11 +29,66 @@
 pip install -r requirements.txt
 ```
 
-## 快速开始
+## 使用方式
 
-### 使用服务层API
+### 1. REST API 服务
 
-最简单的使用方式是通过 `RAGService` 统一管理文档和检索：
+#### 启动服务
+```bash
+python service.py
+```
+服务默认运行在 `http://localhost:28900`
+
+#### API 接口
+- 知识库管理
+  - `POST /kb/create`: 创建知识库
+  - `GET /kb/list`: 列出所有知识库
+  - `GET /kb/{kb_name}/info`: 获取知识库信息
+  - `POST /kb/add_documents`: 添加文档到知识库
+  - `GET /kb/{kb_name}/documents`: 获取知识库中的文档（分页）
+  - `POST /kb/{kb_name}/documents/{doc_id}`: 更新指定文档
+- 检索服务
+  - `POST /kb/search`: 搜索知识库
+
+#### API 使用示例
+```python
+import requests
+
+# 创建知识库
+response = requests.post("http://localhost:28900/kb/create", json={
+    "name": "my_kb",
+    "retriever_type": "hybrid",
+    "vector_top_k": 5,
+    "bm25_top_k": 5,
+    "final_top_k": 3,
+    "vector_weight": 0.7,
+    "bm25_weight": 0.3
+})
+
+# 添加文档
+files = {
+    'file': ('qa.xlsx', open('qa.xlsx', 'rb')),
+}
+data = {
+    'kb_name': 'my_kb',
+    'file_type': 'excel',
+    'chunk_size': '512',
+    'chunk_overlap': '50',
+    'parser_kwargs': '{"question_col": "question", "answer_col": "answer"}'
+}
+response = requests.post("http://localhost:28900/kb/add_documents", files=files, data=data)
+
+# 搜索
+response = requests.post("http://localhost:28900/kb/search", json={
+    "kb_name": "my_kb",
+    "query": "什么是机器学习？",
+    "return_scores": True
+})
+```
+
+### 2. 使用服务层API
+
+直接在代码中使用 `RAGService`：
 
 ```python
 from service import RAGService
@@ -74,20 +128,13 @@ results = service.search(
     query="你的问题",
     return_scores=True  # 是否返回相关度分数
 )
-
-# 查看结果
-for result in results:
-    print(f"相关度: {result['score']}")
-    print(f"内容: {result['content']}")
-    print(f"元数据: {result['metadata']}")
 ```
 
-### 使用底层API
+### 3. 使用底层API
 
-也可以直接使用各个组件进行更灵活的定制：
+可以直接使用各个组件进行更灵活的定制：
 
 #### Excel问答对检索
-
 ```python
 from parsers.excel import QAExcelParser
 from retrievers.vector import VectorRetriever
@@ -109,7 +156,6 @@ retriever.add_documents(documents)
 ```
 
 #### PDF文档检索
-
 ```python
 from parsers.pdf import LlamaPDFParser
 from retrievers.hybrid import HybridRetriever
@@ -130,17 +176,6 @@ retriever = HybridRetriever(...)
 retriever.add_documents(documents)
 ```
 
-### 数据管理工具
-
-使用命令行工具管理检索数据：
-```bash
-# 查看和管理检索器数据
-python utils/data_manager.py
-
-# 指定模型路径和数据目录
-python utils/data_manager.py --embedding_model /path/to/model --root_path /path/to/data
-```
-
 ## 项目结构
 
 - `core/`: 核心接口定义
@@ -151,7 +186,7 @@ python utils/data_manager.py --embedding_model /path/to/model --root_path /path/
 - `utils/`: 工具函数
 - `examples/`: 示例代码
 - `models/`: 预训练模型配置
-- `service.py`: 统一服务层API
+- `service.py`: REST API 服务
 
 ## 核心依赖
 
@@ -161,8 +196,8 @@ python utils/data_manager.py --embedding_model /path/to/model --root_path /path/
 - FlagEmbedding
 - llama-index
 - FAISS
-- Milvus (可选)
-- pandas (Excel支持)
+- FastAPI
+- pandas
 
 ## License
 

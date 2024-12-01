@@ -11,6 +11,8 @@ from parsers.llama_markdown import LlamaMarkdownParser
 from rerankers.base import BGELayerwiseReranker
 from core.document import Document
 from core.retriever import BaseRetriever
+import numpy as np
+from rank_bm25 import BM25Okapi
 
 
 class RAGService:
@@ -209,7 +211,7 @@ class RAGService:
         # 加载检索器
         retriever = self._load_retriever(str(kb_path))
         
-        # 执行检索
+        # 统一处理检索结果
         if return_scores:
             results = retriever.retrieve_with_scores(query, **kwargs)
             return [
@@ -276,6 +278,128 @@ class RAGService:
             
         retriever.load(str(kb_path))
         return retriever
+    
+    def get_kb_documents(
+        self,
+        kb_name: str,
+        page: int = 1,
+        page_size: int = 10
+    ) -> Dict[str, Any]:
+        """获取知识库中的所有文档（分页）"""
+        kb_path = self.data_root / kb_name
+        if not kb_path.exists():
+            raise ValueError(f"知识库不存在: {kb_name}")
+        
+        # 加载检索器
+        retriever = self._load_retriever(str(kb_path))
+        
+        # 获取所有文档
+        if isinstance(retriever, HybridRetriever):
+            # 对于混合检索器，使用第一个检索器（通常是向量检索器）的文档
+            all_docs = retriever.retrievers[0].documents
+        else:
+            all_docs = retriever.documents
+        
+        total_docs = len(all_docs)
+        
+        # 计算总页数
+        total_pages = (total_docs + page_size - 1) // page_size
+        
+        # 验证页码
+        if page < 1 or (total_docs > 0 and page > total_pages):
+            raise ValueError(f"无效的页码: {page}, 总页数: {total_pages}")
+        
+        # 计算当前页的文档
+        start_idx = (page - 1) * page_size
+        end_idx = min(start_idx + page_size, total_docs)
+        current_docs = list(all_docs)[start_idx:end_idx]
+        
+        # 构建返回数据
+        return {
+            "total": total_docs,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "documents": [
+                {
+                    "id": doc.id,
+                    "content": doc.content,
+                    "metadata": doc.metadata
+                }
+                for doc in current_docs
+            ]
+        }
+    
+    def update_document(
+        self,
+        kb_name: str,
+        doc_id: str,
+        content: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """更新知识库中的指定文档"""
+        kb_path = self.data_root / kb_name
+        if not kb_path.exists():
+            raise ValueError(f"知识库不存在: {kb_name}")
+        
+        # 加载检索器
+        retriever = self._load_retriever(str(kb_path))
+        
+        # 获取文档集合
+        if isinstance(retriever, HybridRetriever):
+            retrievers = retriever.retrievers
+        else:
+            retrievers = [retriever]
+        
+        success = False
+        for r in retrievers:
+            # 查找文档
+            doc_index = None
+            for i, doc in enumerate(r.documents):
+                if doc.id == doc_id:
+                    doc_index = i
+                    break
+                
+            if doc_index is not None:
+                # 创建新文档
+                old_doc = r.documents[doc_index]
+                new_content = content if content is not None else old_doc.content
+                new_metadata = {**old_doc.metadata, **(metadata or {})}
+                
+                # 创建新文档对象（保持原ID）
+                new_doc = Document(
+                    content=new_content,
+                    metadata=new_metadata,
+                    id=doc_id
+                )
+                
+                # 更新文档
+                if isinstance(r, VectorRetriever):
+                    # 对于向量检索器，重建整个索引
+                    r.documents[doc_index] = new_doc
+                    # 重新计算所有文档的向量并创建新索引
+                    embeddings = r.embedding_model.encode([doc.content for doc in r.documents])
+                    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+                    
+                    # 重新初始化索引
+                    r._init_index(r.dimension)
+                    # 添加所有向量
+                    r.index.add(embeddings.astype(np.float32))
+                    
+                elif isinstance(r, BM25Retriever):
+                    # 对于BM25检索器，需要重新分词
+                    r.documents[doc_index] = new_doc
+                    r.tokenized_docs[doc_index] = r.tokenizer.tokenize(new_content)
+                    r.bm25 = BM25Okapi(r.tokenized_docs)
+                
+                success = True
+        
+        if success:
+            # 保存更新后的检索器
+            retriever.save(str(kb_path))
+            return True
+        else:
+            raise ValueError(f"未找到ID为 {doc_id} 的文档")
 
 
 # 使用示例
@@ -283,15 +407,15 @@ if __name__ == "__main__":
     # 初始化服务
     service = RAGService(
         data_root="./data/retriever",
-        embedding_model="./models/bge-small-zh-v1.5",
-        reranker_model="./models/bge-reranker-v2-minicpm-layerwise"
+        embedding_model="../models/bge-small-zh-v1.5",
+        reranker_model="../models/bge-reranker-v2-minicpm-layerwise"
     )
     
     # 创建知识库
-    kb_name = "test_kb"
+    kb_name = "test_kb_2"
     service.create_knowledge_base(
         name=kb_name,
-        retriever_type="hybrid"
+        retriever_type="bm25"
     )
     
     # 添加文档
