@@ -109,7 +109,7 @@ class VectorRetriever(BaseRetriever):
         """
         os.makedirs(path, exist_ok=True)
         
-        # 保存FAISS索引
+        # ��存FAISS索引
         index_path = os.path.join(path, "index.faiss")
         faiss.write_index(self.index, index_path)
         
@@ -155,3 +155,38 @@ class VectorRetriever(BaseRetriever):
             "dimension": self.dimension,
             "type": self.__class__.__name__
         }
+        
+    def delete_documents(self, doc_ids: List[str]) -> List[str]:
+        """删除指定ID的文档"""
+        if not self.documents or self.index is None:
+            return []
+            
+        # 找出要保留的文档索引
+        keep_indices = []
+        deleted_ids = []
+        
+        for i, doc in enumerate(self.documents):
+            if doc.id in doc_ids:
+                deleted_ids.append(doc.id)
+            else:
+                keep_indices.append(i)
+                
+        if not deleted_ids:
+            return []
+            
+        # 重建索引
+        keep_docs = [self.documents[i] for i in keep_indices]
+        if keep_docs:
+            # 获取保留文档的向量
+            embeddings = self.embedding_model.encode([doc.content for doc in keep_docs])
+            embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+            
+            # 重新初始化索引
+            self._init_index(self.dimension)
+            self.index.add(embeddings.astype(np.float32))
+        else:
+            # 如果没有文档了，重置索引
+            self.index = None
+            
+        self.documents = keep_docs
+        return deleted_ids

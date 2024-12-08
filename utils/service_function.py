@@ -13,6 +13,7 @@ from core.document import Document
 from core.retriever import BaseRetriever
 import numpy as np
 from rank_bm25 import BM25Okapi
+import shutil
 
 
 class RAGService:
@@ -400,6 +401,55 @@ class RAGService:
             return True
         else:
             raise ValueError(f"未找到ID为 {doc_id} 的文档")
+    
+    def delete_documents(self, kb_name: str, doc_ids: List[str]) -> List[str]:
+        """从知识库中删除指定文档
+        
+        Args:
+            kb_name: 知识库名称
+            doc_ids: 要删除的文档ID列表
+            
+        Returns:
+            List[str]: 成功删除的文档ID列表
+        """
+        kb_path = self.data_root / kb_name
+        if not kb_path.exists():
+            raise ValueError(f"知识库不存在: {kb_name}")
+            
+        # 加载检索器
+        retriever = self._load_retriever(str(kb_path))
+
+        print(doc_ids)
+        
+        # 删除文档
+        deleted_ids = retriever.delete_documents(doc_ids)
+        
+        # 保存更新后的检索器
+        if deleted_ids:
+            retriever.save(str(kb_path))
+            
+        return deleted_ids
+    
+    def delete_knowledge_base(self, kb_name: str) -> bool:
+        """删除整个知识库
+        
+        Args:
+            kb_name: 知识库名称
+            
+        Returns:
+            bool: 是否删除成功
+        """
+        kb_path = self.data_root / kb_name
+        if not kb_path.exists():
+            raise ValueError(f"知识库不存在: {kb_name}")
+        
+        try:
+            # 递归删除知识库目录
+            shutil.rmtree(kb_path)
+            return True
+        except Exception as e:
+            print(f"删除知识库失败: {str(e)}")
+            return False
 
 
 # 使用示例

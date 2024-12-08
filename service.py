@@ -53,6 +53,15 @@ class UpdateDocumentRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+class DeleteDocumentsRequest(BaseModel):
+    kb_name: str
+    doc_ids: List[str]
+
+
+class DeleteKBRequest(BaseModel):
+    kb_name: str
+
+
 # 创建FastAPI应用
 app = FastAPI(
     title="RAG Service API",
@@ -179,7 +188,7 @@ async def get_kb_documents(
     Args:
         kb_name: 知识库名称
         page: 页码（从1开始）
-        page_size: 每页文档数量
+        page_size: 页文档数量
     """
     try:
         return rag_service.get_kb_documents(
@@ -220,10 +229,46 @@ async def update_document(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/kb/documents/delete", response_model=Dict[str, List[str]])
+async def delete_documents(request: DeleteDocumentsRequest):
+    """从知识库中删除指定文档
+    
+    Args:
+        request: 删除请求，包含知识库名称和���删除的文档ID列表
+    """
+    try:
+        print(request.doc_ids)
+        deleted_ids = rag_service.delete_documents(
+            kb_name=request.kb_name,
+            doc_ids=request.doc_ids
+        )
+        return {"deleted_ids": deleted_ids}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/kb/delete", response_model=Dict[str, bool])
+async def delete_knowledge_base(request: DeleteKBRequest):
+    """删除整个知识库
+    
+    Args:
+        request: 删除请求，包含知识库名称
+    """
+    try:
+        success = rag_service.delete_knowledge_base(request.kb_name)
+        return {"success": success}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     # 启动服务
     uvicorn.run(
-        "service:app",
+        app,  # 直接传入 app 实例，而不是字符串
         host="0.0.0.0",
         port=28900,
         reload=False

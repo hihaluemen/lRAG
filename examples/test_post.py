@@ -154,13 +154,35 @@ def test_update_document():
     print("更新文档结果:", response.json())
 
 
+def test_delete_documents():
+    """测试删除文档"""
+    response = requests.post(
+        f"{base_url}/kb/documents/delete",
+        json={
+            "kb_name": "tt",
+            "doc_ids": ["af57d496-818e-4009-b5f7-77f5edde9db7", "2774cc31-ec2d-4971-a2db-4b05a9987743"]
+        }
+    )
+    print(response.json())
+
+
+def test_delete_kb():
+    """测试删除知识库"""
+    response = requests.post(
+        f"{base_url}/kb/delete",
+        json={"kb_name": "tt"}
+    )
+    print("删除知识库结果:", response.json())
+
+
 if __name__ == "__main__":
     # test_create_kb()
     # test_add_documents()
     # test_search()
     # test_list_knowledge_bases()
     # test_kb_info()
-    test_update_document()
-    test_kb_documents()
-    
+    # test_update_document()
+    # test_kb_documents()
+    # test_delete_documents()
+    test_delete_kb()
 

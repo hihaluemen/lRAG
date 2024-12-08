@@ -78,7 +78,7 @@ class BM25Retriever(BaseRetriever):
         if not self.documents or not self.bm25:
             return []
 
-        # 对查���进行分词
+        # 对查询进行分词
         tokenized_query = self.tokenizer.tokenize(query)
         if not tokenized_query:
             return []
@@ -154,3 +154,33 @@ class BM25Retriever(BaseRetriever):
             "top_k": self.top_k,
             "score_threshold": self.score_threshold
         }
+
+    def delete_documents(self, doc_ids: List[str]) -> List[str]:
+        """删除指定ID的文档"""
+        if not self.documents:
+            return []
+            
+        # 找出要保留的文档索引
+        keep_indices = []
+        deleted_ids = []
+        
+        for i, doc in enumerate(self.documents):
+            if doc.id in doc_ids:
+                deleted_ids.append(doc.id)
+            else:
+                keep_indices.append(i)
+                
+        if not deleted_ids:
+            return []
+            
+        # 更新文档列表和分词结果
+        self.documents = [self.documents[i] for i in keep_indices]
+        self.tokenized_docs = [self.tokenized_docs[i] for i in keep_indices]
+        
+        # 重建BM25索引
+        if self.documents:
+            self.bm25 = BM25Okapi(self.tokenized_docs)
+        else:
+            self.bm25 = None
+            
+        return deleted_ids

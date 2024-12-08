@@ -166,3 +166,12 @@ class HybridRetriever(BaseRetriever):
             "pre_rerank_top_k": self.pre_rerank_top_k,
             "has_reranker": self.reranker is not None
         }
+
+    def delete_documents(self, doc_ids: List[str]) -> List[str]:
+        """从所有检索器中删除文档"""
+        deleted_ids = []
+        for retriever in self.retrievers:
+            deleted = retriever.delete_documents(doc_ids)
+            if not deleted_ids:
+                deleted_ids = deleted
+        return deleted_ids

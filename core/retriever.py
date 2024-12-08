@@ -76,3 +76,16 @@ class BaseRetriever(ABC):
             "document_count": 0,
             "type": self.__class__.__name__
         }
+
+    @abstractmethod
+    def delete_documents(self, doc_ids: List[str]) -> List[str]:
+        """
+        从检索器中删除指定ID的文档
+
+        Args:
+            doc_ids: 要删除的文档ID列表
+
+        Returns:
+            List[str]: 成功删除的文档ID列表
+        """
+        pass
