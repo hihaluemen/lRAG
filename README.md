@@ -47,6 +47,8 @@ python service.py
   - `POST /kb/add_documents`: 添加文档到知识库
   - `GET /kb/{kb_name}/documents`: 获取知识库中的文档（分页）
   - `POST /kb/{kb_name}/documents/{doc_id}`: 更新指定文档
+  - `POST /documents/delete`: 删除指定文档
+  - `POST /kb/delete`: 删除整个知识库
 - 检索服务
   - `POST /kb/search`: 搜索知识库
 
@@ -54,8 +56,10 @@ python service.py
 ```python
 import requests
 
+base_url = "http://localhost:28900"
+
 # 创建知识库
-response = requests.post("http://localhost:28900/kb/create", json={
+response = requests.post(f"{base_url}/kb/create", json={
     "name": "my_kb",
     "retriever_type": "hybrid",
     "vector_top_k": 5,
@@ -76,13 +80,24 @@ data = {
     'chunk_overlap': '50',
     'parser_kwargs': '{"question_col": "question", "answer_col": "answer"}'
 }
-response = requests.post("http://localhost:28900/kb/add_documents", files=files, data=data)
+response = requests.post(f"{base_url}/kb/add_documents", files=files, data=data)
 
 # 搜索
-response = requests.post("http://localhost:28900/kb/search", json={
+response = requests.post(f"{base_url}/kb/search", json={
     "kb_name": "my_kb",
     "query": "什么是机器学习？",
     "return_scores": True
+})
+
+# 删除指定文档
+response = requests.post(f"{base_url}/documents/delete", json={
+    "kb_name": "my_kb",
+    "doc_ids": ["doc_id_1", "doc_id_2"]
+})
+
+# 删除整个知识库
+response = requests.post(f"{base_url}/kb/delete", json={
+    "kb_name": "my_kb"
 })
 ```
 
@@ -128,6 +143,15 @@ results = service.search(
     query="你的问题",
     return_scores=True  # 是否返回相关度分数
 )
+
+# 删除文档
+deleted_ids = service.delete_documents(
+    kb_name=kb_name,
+    doc_ids=["doc_id_1", "doc_id_2"]
+)
+
+# 删除知识库
+success = service.delete_knowledge_base(kb_name)
 ```
 
 ### 3. 使用底层API
@@ -184,7 +208,7 @@ retriever.add_documents(documents)
 - `embeddings/`: 向量编码器实现
 - `rerankers/`: 重排序模型
 - `utils/`: 工具函数
-- `examples/`: 示例代码
+- `examples/`: 示��代码
 - `models/`: 预训练模型配置
 - `service.py`: REST API 服务
 
