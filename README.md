@@ -208,7 +208,7 @@ retriever.add_documents(documents)
 - `embeddings/`: 向量编码器实现
 - `rerankers/`: 重排序模型
 - `utils/`: 工具函数
-- `examples/`: 示��代码
+- `examples/`: 示例代码
 - `models/`: 预训练模型配置
 - `service.py`: REST API 服务
 
